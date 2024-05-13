@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS infrastructure for a vanity number generator using Lambda and DynamoDB.
+
+Resources:
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: LambdaDynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:Scan
+                  - dynamodb:UpdateItem
+                  - dynamodb:Query
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+
+  VanityNumbersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: VanityNumbers
+      AttributeDefinitions:
+        - AttributeName: PhoneNumber
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PhoneNumber
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+  VanityNumberLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: vanitynumber
+        S3Key: generate_vanitynumber.zip
+      Runtime: python3.8
+      Timeout: 30
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref VanityNumbersTable
+
+Outputs:
+  LambdaFunctionARN:
+    Description: ARN of Lambda Function
+    Value: !GetAtt VanityNumberLambda.Arn
+
+  DynamoDBTableARN:
+    Description: ARN of DynamoDB Table
+    Value: !GetAtt VanityNumbersTable.Arn
